@@ -1,15 +1,56 @@
 package lal.jay.camera2demo;
 
+import android.graphics.SurfaceTexture;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.TextureView;
 import android.view.View;
+import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity {
+
+    private TextureView textureView;
+    private TextureView.SurfaceTextureListener textureViewListener = new TextureView.SurfaceTextureListener() {
+        @Override
+        public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
+            //Surface Texture is Available
+            //width x height -> 1080 x 1860 for Redmi Note 4
+        }
+
+        @Override
+        public void onSurfaceTextureSizeChanged(SurfaceTexture surfaceTexture, int width, int height) {
+
+        }
+
+        @Override
+        public boolean onSurfaceTextureDestroyed(SurfaceTexture surfaceTexture) {
+            return false;
+        }
+
+        @Override
+        public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) {
+
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        //Bind textureView variable with layout textureView
+        textureView = (TextureView)findViewById(R.id.textureView);
+
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        //if textureView is not available set a listener that tells us when it's available
+        if(!textureView.isAvailable())
+            textureView.setSurfaceTextureListener(textureViewListener);
+
     }
 
     @Override
