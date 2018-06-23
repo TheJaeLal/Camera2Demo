@@ -11,9 +11,13 @@ import android.os.HandlerThread;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.SparseIntArray;
+import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.Toast;
+
+import java.io.OutputStream;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -84,6 +88,21 @@ public class MainActivity extends AppCompatActivity {
                 {
                     //Setup the global cameraId to this camId
                     cameraId = camId;
+
+                    //Adjust Sensor to device orientation
+                    int deviceOrientation = getWindowManager().getDefaultDisplay().getRotation();
+                    int totalRotation = sensorToDeviceRotation(camChars,deviceOrientation);
+
+                    boolean swapRotation = totalRotation == 90 || totalRotation == 270;
+
+                    int rotatedWidth = width;
+                    int rotatedHeight = height;
+
+                    if (swapRotation)
+                    {
+                        rotatedWidth = height;
+                        rotatedHeight = width;
+                    }
                     return;
                 }
 
@@ -123,6 +142,26 @@ public class MainActivity extends AppCompatActivity {
 
         bgThread = null;
         bgThreadHandler = null;
+    }
+
+
+    private static SparseIntArray ORIENTATIONS = new SparseIntArray();
+    static{
+        ORIENTATIONS.append(Surface.ROTATION_0,0);
+        ORIENTATIONS.append(Surface.ROTATION_90,90);
+        ORIENTATIONS.append(Surface.ROTATION_180,180);
+        ORIENTATIONS.append(Surface.ROTATION_270,270);
+    }
+
+    private static int sensorToDeviceRotation(CameraCharacteristics cameraCharacteristics, int deviceOrientation)
+    {
+        int sensorOrientation = cameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+
+        //convert deviceOrientation to degrees
+        deviceOrientation = ORIENTATIONS.get(deviceOrientation);
+
+        return deviceOrientation;
+
     }
 
     @Override
