@@ -1,7 +1,11 @@
 package lal.jay.camera2demo;
 
+import android.content.Context;
 import android.graphics.SurfaceTexture;
+import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraManager;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -17,6 +21,10 @@ public class MainActivity extends AppCompatActivity {
         public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
             //Surface Texture is Available
             //width x height -> 1080 x 1860 for Redmi Note 4
+
+            //Setup Camera now since the SurfaceTexture is available
+            setupCamera(width,height);
+            Toast.makeText(getApplicationContext(),"SurfaceCameraId = "+cameraId,Toast.LENGTH_SHORT).show();
         }
 
         @Override
@@ -59,6 +67,30 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    private String cameraId;
+
+    private void setupCamera(int width, int height)
+    {
+        CameraManager camManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+
+        try{
+            for(String camId: camManager.getCameraIdList())
+            {
+                CameraCharacteristics camChars = camManager.getCameraCharacteristics(camId);
+
+                if(camChars.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK)
+                {
+                    //Setup the global cameraId to this camId
+                    cameraId = camId;
+                    return;
+                }
+
+            }
+        } catch (CameraAccessException e ){
+            e.printStackTrace();
+        }
+
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,6 +110,11 @@ public class MainActivity extends AppCompatActivity {
         if(!textureView.isAvailable())
             textureView.setSurfaceTextureListener(textureViewListener);
 
+        //If TextureView is Available
+        else{
+            setupCamera(textureView.getWidth(), textureView.getHeight());
+            Toast.makeText(getApplicationContext(), "CameraId = " + cameraId, Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
