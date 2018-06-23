@@ -6,6 +6,8 @@ import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -24,7 +26,7 @@ public class MainActivity extends AppCompatActivity {
 
             //Setup Camera now since the SurfaceTexture is available
             setupCamera(width,height);
-            Toast.makeText(getApplicationContext(),"SurfaceCameraId = "+cameraId,Toast.LENGTH_SHORT).show();
+            //Toast.makeText(getApplicationContext(),"SurfaceCameraId = "+cameraId,Toast.LENGTH_SHORT).show();
         }
 
         @Override
@@ -92,6 +94,37 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    // We need to take the camera Loading and stuff off the UI thread
+    // So we create a background thread and a handler for it..
+
+    private HandlerThread bgThread;
+    private Handler bgThreadHandler;
+
+
+    private void startBgThread()
+    {
+        bgThread = new HandlerThread("BackgroundThread");
+        bgThread.start();
+
+        bgThreadHandler = new Handler(bgThread.getLooper());
+    }
+
+    private void stopBgThread()
+    {
+        bgThread.quitSafely();
+
+        try {
+            bgThread.join();
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+
+        bgThread = null;
+        bgThreadHandler = null;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -106,6 +139,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 
+        startBgThread();
+
         //if textureView is not available set a listener that tells us when it's available
         if(!textureView.isAvailable())
             textureView.setSurfaceTextureListener(textureViewListener);
@@ -113,7 +148,7 @@ public class MainActivity extends AppCompatActivity {
         //If TextureView is Available
         else{
             setupCamera(textureView.getWidth(), textureView.getHeight());
-            Toast.makeText(getApplicationContext(), "CameraId = " + cameraId, Toast.LENGTH_SHORT).show();
+//            Toast.makeText(getApplicationContext(), "CameraId = " + cameraId, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -121,6 +156,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onPause() {
         //Free up resources when the app is paused..
         closeCamera();
+
+        stopBgThread();
 
         super.onPause();
     }
