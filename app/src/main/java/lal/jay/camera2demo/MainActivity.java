@@ -1,6 +1,8 @@
 package lal.jay.camera2demo;
 
 import android.graphics.SurfaceTexture;
+import android.hardware.camera2.CameraDevice;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.TextureView;
@@ -33,6 +35,31 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    //To hold reference to the Camera Device
+    private CameraDevice cameraDevice;
+
+    //Listener to the Camera Device
+
+    private CameraDevice.StateCallback cameraStateCallback = new CameraDevice.StateCallback() {
+        @Override
+        public void onOpened(@NonNull CameraDevice camera) {
+            cameraDevice = camera;
+        }
+
+        @Override
+        public void onDisconnected(@NonNull CameraDevice camera) {
+            camera.close();
+            cameraDevice = null;
+        }
+
+        @Override
+        public void onError(@NonNull CameraDevice camera, int i) {
+            camera.close();
+            cameraDevice = null;
+        }
+    };
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -51,6 +78,23 @@ public class MainActivity extends AppCompatActivity {
         if(!textureView.isAvailable())
             textureView.setSurfaceTextureListener(textureViewListener);
 
+    }
+
+    @Override
+    protected void onPause() {
+        //Free up resources when the app is paused..
+        closeCamera();
+
+        super.onPause();
+    }
+
+    //To close the Camera and free up resources
+    private void closeCamera() {
+        if(cameraDevice!=null)
+        {
+            cameraDevice.close();
+            cameraDevice = null;
+        }
     }
 
     @Override
@@ -73,4 +117,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
     }
+
+
 }
