@@ -6,11 +6,13 @@ import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.params.StreamConfigurationMap;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Size;
 import android.util.SparseIntArray;
 import android.view.Surface;
 import android.view.TextureView;
@@ -18,6 +20,10 @@ import android.view.View;
 import android.widget.Toast;
 
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -74,6 +80,7 @@ public class MainActivity extends AppCompatActivity {
     };
 
     private String cameraId;
+    private Size previewSize;
 
     private void setupCamera(int width, int height)
     {
@@ -86,8 +93,6 @@ public class MainActivity extends AppCompatActivity {
 
                 if(camChars.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK)
                 {
-                    //Setup the global cameraId to this camId
-                    cameraId = camId;
 
                     //Adjust Sensor to device orientation
                     int deviceOrientation = getWindowManager().getDefaultDisplay().getRotation();
@@ -103,6 +108,14 @@ public class MainActivity extends AppCompatActivity {
                         rotatedWidth = height;
                         rotatedHeight = width;
                     }
+                    StreamConfigurationMap map = camChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+
+                    //preview Size is 1440 x 1080 for Redmi Note 4
+                    previewSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),rotatedWidth,rotatedHeight);
+
+                    //Setup the global cameraId to this camId
+                    cameraId = camId;
+
                     return;
                 }
 
@@ -160,10 +173,38 @@ public class MainActivity extends AppCompatActivity {
         //convert deviceOrientation to degrees
         deviceOrientation = ORIENTATIONS.get(deviceOrientation);
 
-        return deviceOrientation;
+        //Fixed a bug here, previously returning only deviceOrientation...
+        return (sensorOrientation + deviceOrientation + 360) % 360;
 
     }
 
+    private static class CompareSizeByArea implements Comparator<Size>
+    {
+
+        @Override
+        public int compare(Size lhs, Size rhs)
+        {
+
+            return Long.signum((long) lhs.getWidth() * lhs.getHeight() /
+                    (long) rhs.getWidth() * rhs.getHeight());
+        }
+    }
+
+    private static Size chooseOptimalSize(Size[] choices,int width, int height)
+    {
+        List<Size> bigEnough = new ArrayList<Size>();
+        for(Size option : choices)
+        {
+            if(option.getHeight() == option.getWidth() * height/width && option.getWidth() >= width && option.getHeight() >= height)
+                bigEnough.add(option);
+
+        }
+
+        if(bigEnough.size() > 0 )
+            return Collections.min(bigEnough, new CompareSizeByArea());
+        else
+            return choices[0];
+    }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -215,7 +256,6 @@ public class MainActivity extends AppCompatActivity {
         super.onWindowFocusChanged(hasFocus);
 
         //Get the decorView
-
         View decorView = getWindow().getDecorView();
 
         //If the app is brought into focus..
