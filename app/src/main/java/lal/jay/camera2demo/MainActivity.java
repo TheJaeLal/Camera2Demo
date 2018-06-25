@@ -5,9 +5,11 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.os.Build;
 import android.os.Handler;
@@ -26,6 +28,7 @@ import android.widget.Toast;
 
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -70,7 +73,8 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onOpened(@NonNull CameraDevice camera) {
             cameraDevice = camera;
-            Toast.makeText(getApplicationContext(),"Connected to Camera!",Toast.LENGTH_SHORT).show();
+            startPreview();
+//            Toast.makeText(getApplicationContext(),"Connected to Camera!",Toast.LENGTH_SHORT).show();
         }
 
         @Override
@@ -243,6 +247,45 @@ public class MainActivity extends AppCompatActivity {
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
+    }
+
+    private CaptureRequest.Builder captureRequestBuilder;
+
+    private void startPreview()
+    {
+        SurfaceTexture surfaceTexture = textureView.getSurfaceTexture();
+        surfaceTexture.setDefaultBufferSize(previewSize.getWidth(),previewSize.getHeight());
+        Surface previewSurface = new Surface(surfaceTexture);
+
+        try {
+            captureRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            captureRequestBuilder.addTarget(previewSurface);
+
+            //Create the capture session
+            cameraDevice.createCaptureSession(Arrays.asList(previewSurface), new CameraCaptureSession.StateCallback() {
+                @Override
+                public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
+                        //CaptureCallback allows you to process dataFrames after capture!
+                    try {
+                        cameraCaptureSession.setRepeatingRequest(captureRequestBuilder.build(), null, bgThreadHandler);
+                    }catch (CameraAccessException e)
+                    {
+                        e.printStackTrace();
+                    }
+
+                    }
+
+                @Override
+                public void onConfigureFailed(@NonNull CameraCaptureSession cameraCaptureSession) {
+                    Toast.makeText(getApplicationContext(),"Unable to setup Camera Preview",Toast.LENGTH_SHORT).show();
+                }
+            },null);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+
+
+
     }
 
     @Override
