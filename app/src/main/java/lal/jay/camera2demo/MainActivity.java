@@ -3,6 +3,7 @@ package lal.jay.camera2demo;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -11,6 +12,8 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.Image;
+import android.media.ImageReader;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -19,6 +22,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.Size;
 import android.util.SparseIntArray;
 import android.view.Surface;
@@ -26,9 +30,9 @@ import android.view.TextureView;
 import android.view.View;
 import android.widget.Toast;
 
+import java.io.File;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -92,6 +96,27 @@ public class MainActivity extends AppCompatActivity {
 
     private String cameraId;
     private Size previewSize;
+    private ImageReader imageReader;
+
+    private ImageReader.OnImageAvailableListener imageAvailableListener = new ImageReader.OnImageAvailableListener() {
+        @Override
+        public void onImageAvailable(ImageReader reader) {
+            //Do something...
+            Log.d("onImageAvailable","Image is available!!!");
+
+            Image image =  reader.acquireNextImage();
+
+//            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss:SSS");
+//            Date resultdate = new Date(System.currentTimeMillis());
+//            String mFileName = sdf.format(resultdate);
+//            File mFile = new File(getActivity().getExternalFilesDir(null), "pic "+mFileName+" preview.jpg");
+//            Log.i("Saved file", ""+mFile.toString());
+//
+
+            if (image != null)
+                image.close();
+        }
+    };
 
     private void setupCamera(int width, int height) {
         CameraManager camManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
@@ -116,6 +141,16 @@ public class MainActivity extends AppCompatActivity {
                         rotatedHeight = width;
                     }
                     StreamConfigurationMap map = camChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+
+                    //For extracting images/frames..
+                    Size[] imgSizes = map.getOutputSizes(ImageReader.class);
+                    Size imgSize = chooseOptimalSize(imgSizes,rotatedWidth,rotatedHeight);
+
+                    //Create an ImageReader instance with the specified size and Image format..
+                    imageReader = ImageReader.newInstance(imgSize.getWidth(),imgSize.getHeight(), ImageFormat.YUV_420_888,1);
+
+                    //Setup the imageAvailableListener..
+                    imageReader.setOnImageAvailableListener(imageAvailableListener,bgThreadHandler);
 
                     //preview Size is 1440 x 1080 for Redmi Note 4
                     previewSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class), rotatedWidth, rotatedHeight);
@@ -253,27 +288,52 @@ public class MainActivity extends AppCompatActivity {
 
     private void startPreview()
     {
+        //Get the surface Texture
         SurfaceTexture surfaceTexture = textureView.getSurfaceTexture();
+
+        //Set its buffer size based on width and height...
         surfaceTexture.setDefaultBufferSize(previewSize.getWidth(),previewSize.getHeight());
+
+        //Create a new Surface from the SurfaceTexture
         Surface previewSurface = new Surface(surfaceTexture);
 
+        //Create a list of outputSurfaces (where the Image goes...)
+
+        List<Surface> outputSurfaces = new ArrayList<Surface>(2);
+
+        //The Camera (In App) Preview is one of the Output Surfaces
+        outputSurfaces.add(previewSurface);
+
+        //The frame captured is to be processed so imageReader's surface object..
+        outputSurfaces.add(imageReader.getSurface());
+
         try {
+
+            //Builds the Capture Request
             captureRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+
+            //For reading and processing each frame ..
+            captureRequestBuilder.addTarget(imageReader.getSurface());
+
+            //Sets the target for the captured Output, should be an instance of Surface..
             captureRequestBuilder.addTarget(previewSurface);
 
-            //Create the capture session
-            cameraDevice.createCaptureSession(Arrays.asList(previewSurface), new CameraCaptureSession.StateCallback() {
+            //Start the Capture Session
+            cameraDevice.createCaptureSession(outputSurfaces, new CameraCaptureSession.StateCallback() {
+
                 @Override
                 public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
-                        //CaptureCallback allows you to process dataFrames after capture!
+
                     try {
+                        //Once the Session is setup/configured set a repeating Capture request, and pass in the
+                        //RequestBuilds, these repeating requests are handled by background Thread Handler...
+                        //CaptureCallback allows you to process dataFrames after capture!
                         cameraCaptureSession.setRepeatingRequest(captureRequestBuilder.build(), null, bgThreadHandler);
-                    }catch (CameraAccessException e)
-                    {
+                    }catch (CameraAccessException e) {
                         e.printStackTrace();
                     }
 
-                    }
+                }
 
                 @Override
                 public void onConfigureFailed(@NonNull CameraCaptureSession cameraCaptureSession) {
@@ -283,8 +343,6 @@ public class MainActivity extends AppCompatActivity {
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
-
-
 
     }
 
