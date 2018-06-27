@@ -37,7 +37,53 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.WebSocket;
+import okhttp3.WebSocketListener;
+
 public class MainActivity extends AppCompatActivity {
+
+    private OkHttpClient client;
+    private WebSocket ws;
+
+    public void onLaunch(View view) {
+        Request request = new Request.Builder().url("ws://echo.websocket.org").build();
+        EchoWebSocketListener listener = new EchoWebSocketListener();
+        ws = client.newWebSocket(request, listener);
+//        client.dispatcher().executorService().shutdown();
+    }
+
+    private final class EchoWebSocketListener extends WebSocketListener {
+
+        private static final int NORMAL_CLOSURE_STATUS = 1000;
+        @Override
+        public void onOpen(WebSocket webSocket, Response response) {
+            //super.onOpen(webSocket,response);
+            webSocket.send("Hello");
+            //webSocket.close(NORMAL_CLOSURE_STATUS, "Goodbye !");
+        }
+
+        @Override
+        public void onMessage(WebSocket webSocket, String text) {
+            Log.d("WebSocket","Receiving : " + text);
+        }
+//        @Override
+//        public void onMessage(WebSocket webSocket, ByteString bytes) {
+//            output("Receiving bytes : " + bytes.hex());
+//        }
+
+        @Override
+        public void onClosing(WebSocket webSocket, int code, String reason) {
+            webSocket.close(NORMAL_CLOSURE_STATUS, null);
+//            output("Closing : " + code + " / " + reason);
+        }
+        @Override
+        public void onFailure(WebSocket webSocket, Throwable t, Response response) {
+            Log.d("WebSocket","Error : " + t.getMessage());
+        }
+    }
 
     private TextureView textureView;
     private TextureView.SurfaceTextureListener textureViewListener = new TextureView.SurfaceTextureListener() {
@@ -104,7 +150,15 @@ public class MainActivity extends AppCompatActivity {
             //Do something...
             Log.d("onImageAvailable","Image is available!!!");
 
+            //Image frame..
             Image image =  reader.acquireNextImage();
+
+
+            client.dispatcher().executorService().shutdown();
+
+
+
+
 
 //            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss:SSS");
 //            Date resultdate = new Date(System.currentTimeMillis());
@@ -354,6 +408,7 @@ public class MainActivity extends AppCompatActivity {
         //Bind textureView variable with layout textureView
         textureView = (TextureView)findViewById(R.id.textureView);
 
+        client = new OkHttpClient();
     }
 
     @Override
@@ -412,6 +467,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
     }
+
 
 
 }
