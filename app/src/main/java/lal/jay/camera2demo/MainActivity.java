@@ -3,6 +3,7 @@ package lal.jay.camera2demo;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
@@ -32,57 +33,20 @@ import android.widget.Toast;
 
 import java.io.File;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.WebSocket;
-import okhttp3.WebSocketListener;
 
 public class MainActivity extends AppCompatActivity {
 
-    private OkHttpClient client;
-    private WebSocket ws;
+
 
     public void onLaunch(View view) {
-        Request request = new Request.Builder().url("ws://echo.websocket.org").build();
-        EchoWebSocketListener listener = new EchoWebSocketListener();
-        ws = client.newWebSocket(request, listener);
-//        client.dispatcher().executorService().shutdown();
-    }
 
-    private final class EchoWebSocketListener extends WebSocketListener {
-
-        private static final int NORMAL_CLOSURE_STATUS = 1000;
-        @Override
-        public void onOpen(WebSocket webSocket, Response response) {
-            //super.onOpen(webSocket,response);
-            webSocket.send("Hello");
-            //webSocket.close(NORMAL_CLOSURE_STATUS, "Goodbye !");
-        }
-
-        @Override
-        public void onMessage(WebSocket webSocket, String text) {
-            Log.d("WebSocket","Receiving : " + text);
-        }
-//        @Override
-//        public void onMessage(WebSocket webSocket, ByteString bytes) {
-//            output("Receiving bytes : " + bytes.hex());
-//        }
-
-        @Override
-        public void onClosing(WebSocket webSocket, int code, String reason) {
-            webSocket.close(NORMAL_CLOSURE_STATUS, null);
-//            output("Closing : " + code + " / " + reason);
-        }
-        @Override
-        public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-            Log.d("WebSocket","Error : " + t.getMessage());
-        }
     }
 
     private TextureView textureView;
@@ -151,15 +115,31 @@ public class MainActivity extends AppCompatActivity {
             Log.d("onImageAvailable","Image is available!!!");
 
             //Image frame..
+
             Image image =  reader.acquireNextImage();
+            if(image == null)
+                return;
 
+            //Handle YUV Images....
 
-            client.dispatcher().executorService().shutdown();
+            //Send them to the server...
 
-
-
-
-
+//            int width  = image.getWidth();
+//            int height = image.getHeight();
+//
+//            final Image.Plane[] planes = image.getPlanes();
+//
+//            final ByteBuffer buffer = planes[0].getBuffer();
+//            int pixelStride = planes[0].getPixelStride();
+//            int rowStride = planes[0].getRowStride();
+//
+//            int rowPadding = rowStride - pixelStride * width;
+//
+//            Bitmap bitmap = Bitmap.createBitmap(width + rowPadding / pixelStride, height, Bitmap.Config.ARGB_8888);
+//
+//            bitmap.copyPixelsFromBuffer(buffer);
+//            bitmap = Bitmap.createBitmap(bitmap,0,0,width,height);
+//
 //            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss:SSS");
 //            Date resultdate = new Date(System.currentTimeMillis());
 //            String mFileName = sdf.format(resultdate);
@@ -343,20 +323,20 @@ public class MainActivity extends AppCompatActivity {
     private void startPreview()
     {
         //Get the surface Texture
-        SurfaceTexture surfaceTexture = textureView.getSurfaceTexture();
+        //SurfaceTexture surfaceTexture = textureView.getSurfaceTexture();
 
         //Set its buffer size based on width and height...
-        surfaceTexture.setDefaultBufferSize(previewSize.getWidth(),previewSize.getHeight());
+        //surfaceTexture.setDefaultBufferSize(previewSize.getWidth(),previewSize.getHeight());
 
         //Create a new Surface from the SurfaceTexture
-        Surface previewSurface = new Surface(surfaceTexture);
+        //Surface previewSurface = new Surface(surfaceTexture);
 
         //Create a list of outputSurfaces (where the Image goes...)
 
-        List<Surface> outputSurfaces = new ArrayList<Surface>(2);
+        List<Surface> outputSurfaces = new ArrayList<Surface>(0);
 
         //The Camera (In App) Preview is one of the Output Surfaces
-        outputSurfaces.add(previewSurface);
+        //outputSurfaces.add(previewSurface);
 
         //The frame captured is to be processed so imageReader's surface object..
         outputSurfaces.add(imageReader.getSurface());
@@ -370,7 +350,7 @@ public class MainActivity extends AppCompatActivity {
             captureRequestBuilder.addTarget(imageReader.getSurface());
 
             //Sets the target for the captured Output, should be an instance of Surface..
-            captureRequestBuilder.addTarget(previewSurface);
+            //captureRequestBuilder.addTarget(previewSurface);
 
             //Start the Capture Session
             cameraDevice.createCaptureSession(outputSurfaces, new CameraCaptureSession.StateCallback() {
@@ -408,7 +388,6 @@ public class MainActivity extends AppCompatActivity {
         //Bind textureView variable with layout textureView
         textureView = (TextureView)findViewById(R.id.textureView);
 
-        client = new OkHttpClient();
     }
 
     @Override
