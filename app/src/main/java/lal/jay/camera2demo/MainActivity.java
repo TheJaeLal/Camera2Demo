@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
@@ -33,6 +34,8 @@ import android.view.TextureView;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.Toast;
+
+import com.bumptech.glide.Glide;
 
 import java.io.File;
 import java.io.OutputStream;
@@ -112,11 +115,33 @@ public class MainActivity extends AppCompatActivity {
         public void onImageAvailable(ImageReader reader) {
 
             //Image frame..
-            Image image =  reader.acquireNextImage();
+            final Image image =  reader.acquireNextImage();
             if(image == null)
                 return;
 
             Log.d("ImageAvailable","Image Captured!!");
+
+
+            final byte[] decodeImage = imageToByte(image);
+
+
+            runOnUiThread(new Runnable() {
+
+                @Override
+                public void run() {
+
+                    // Stuff that updates the UI
+//                    imageView.setVisibility(ImageView.VISIBLE);
+                    Glide.with(MainActivity.this)
+                            .load(decodeImage)
+                            .into(imageView);
+
+//                    imageView.setImageBitmap(bitmap);
+
+                    imageView.setVisibility(ImageView.VISIBLE);
+                    textureView.setVisibility(TextureView.INVISIBLE);
+                }
+            });
 
             //Handle YUV Images....
 
@@ -163,7 +188,7 @@ public class MainActivity extends AppCompatActivity {
                     //Adjust Sensor to device orientation
                     int deviceOrientation = getWindowManager().getDefaultDisplay().getRotation();
 
-                    int totalRotation = sensorToDeviceRotation(camChars, deviceOrientation);
+                    totalRotation = sensorToDeviceRotation(camChars, deviceOrientation);
 
                     boolean swapRotation = totalRotation == 90 || totalRotation == 270;
 
@@ -552,8 +577,22 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    private byte[] imageToByte(Image image) {
+        Image.Plane[] planes = image.getPlanes();
 
-    public void onCapture(View view) {
+        ByteBuffer buffer = planes[0].getBuffer();
+
+        buffer.rewind();
+
+        byte[] data = new byte[buffer.capacity()];
+
+        buffer.get(data);
+
+//        Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
+        return data;
+    }
+
+        public void onCapture(View view) {
         Log.d("EventListener","Capture Button Clicked!!");
         lockFocus();
     }
