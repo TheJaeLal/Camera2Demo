@@ -12,6 +12,8 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.CaptureResult;
+import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
@@ -29,6 +31,7 @@ import android.util.SparseIntArray;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import java.io.File;
@@ -43,13 +46,9 @@ import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
 
-
-
-    public void onCapture(View view) {
-
-    }
-
+    private ImageView imageView;
     private TextureView textureView;
+
     private TextureView.SurfaceTextureListener textureViewListener = new TextureView.SurfaceTextureListener() {
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
@@ -82,7 +81,6 @@ public class MainActivity extends AppCompatActivity {
     private CameraDevice cameraDevice;
 
     //Listener to the Camera Device
-
     private CameraDevice.StateCallback cameraStateCallback = new CameraDevice.StateCallback() {
         @Override
         public void onOpened(@NonNull CameraDevice camera) {
@@ -106,19 +104,19 @@ public class MainActivity extends AppCompatActivity {
 
     private String cameraId;
     private Size previewSize;
+    private Size imageSize;
     private ImageReader imageReader;
 
     private ImageReader.OnImageAvailableListener imageAvailableListener = new ImageReader.OnImageAvailableListener() {
         @Override
         public void onImageAvailable(ImageReader reader) {
-            //Do something...
-            Log.d("onImageAvailable","Image is available!!!");
 
             //Image frame..
-
             Image image =  reader.acquireNextImage();
             if(image == null)
                 return;
+
+            Log.d("ImageAvailable","Image Captured!!");
 
             //Handle YUV Images....
 
@@ -147,10 +145,11 @@ public class MainActivity extends AppCompatActivity {
 //            Log.i("Saved file", ""+mFile.toString());
 //
 
-            if (image != null)
-                image.close();
+            image.close();
         }
     };
+
+    private int totalRotation;
 
     private void setupCamera(int width, int height) {
         CameraManager camManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
@@ -163,6 +162,7 @@ public class MainActivity extends AppCompatActivity {
 
                     //Adjust Sensor to device orientation
                     int deviceOrientation = getWindowManager().getDefaultDisplay().getRotation();
+
                     int totalRotation = sensorToDeviceRotation(camChars, deviceOrientation);
 
                     boolean swapRotation = totalRotation == 90 || totalRotation == 270;
@@ -181,7 +181,7 @@ public class MainActivity extends AppCompatActivity {
                     Size imgSize = chooseOptimalSize(imgSizes,rotatedWidth,rotatedHeight);
 
                     //Create an ImageReader instance with the specified size and Image format..
-                    imageReader = ImageReader.newInstance(imgSize.getWidth(),imgSize.getHeight(), ImageFormat.YUV_420_888,1);
+                    imageReader = ImageReader.newInstance(imgSize.getWidth(),imgSize.getHeight(), ImageFormat.JPEG,1);
 
                     //Setup the imageAvailableListener..
                     imageReader.setOnImageAvailableListener(imageAvailableListener,bgThreadHandler);
@@ -320,6 +320,84 @@ public class MainActivity extends AppCompatActivity {
 
     private CaptureRequest.Builder captureRequestBuilder;
 
+    private CameraCaptureSession previewCaptureSession;
+    private static final int STATE_PREVIEW = 0;
+    private static final int STATE_WAIT_LOCK = 1;
+
+    private int captureState = STATE_PREVIEW;
+
+    private CameraCaptureSession.CaptureCallback previewCaptureCallback = new CameraCaptureSession.CaptureCallback() {
+
+        private void process(CaptureResult captureResult)
+        {
+            switch(captureState)
+            {
+
+                case STATE_PREVIEW:
+                    //Do Nothing
+                    Log.d("CaptureCallback","STATE_PREVIEW");
+                    break;
+
+                case STATE_WAIT_LOCK:
+
+                    Log.d("CaptureCallback","STATE_WAIT_LOCK");
+
+                    captureState = STATE_PREVIEW;
+
+                    //State of AutoFocus
+                    Integer afState = captureResult.get(CaptureResult.CONTROL_AF_STATE);
+
+                    Log.d("CaptureCallback","AutoFocusState = "+afState.toString());
+
+                    if(afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED ||
+                            afState == CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED)
+
+                    {
+                        //Do something..
+//                        Toast.makeText(getApplicationContext(), "AF Locked!!", Toast.LENGTH_SHORT).show();
+                        startStillCaptureRequest();
+                    }
+                    else{
+                        startStillCaptureRequest();
+                        //Toast.makeText(getApplicationContext(),"AF not Locked...",Toast.LENGTH_SHORT);
+                    }
+
+                    break;
+            }
+        }
+
+        @Override
+        public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
+            super.onCaptureCompleted(session, request, result);
+            process(result);
+        }
+    };
+
+
+    private void startStillCaptureRequest() {
+        try {
+            captureRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+            captureRequestBuilder.addTarget(imageReader.getSurface());
+
+            captureRequestBuilder.set(CaptureRequest.JPEG_ORIENTATION,totalRotation);
+
+            CameraCaptureSession.CaptureCallback stillCaptureCallback = new CameraCaptureSession.CaptureCallback() {
+                @Override
+                public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
+                    super.onCaptureCompleted(session, request, result);
+//                    Toast.makeText(getApplicationContext(), "Image Captured!!", Toast.LENGTH_SHORT).show();
+                }
+            };
+
+            previewCaptureSession.capture(captureRequestBuilder.build(),stillCaptureCallback,null);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+
+
+    }
+
+
     private void startPreview()
     {
         //Get the surface Texture
@@ -359,7 +437,13 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
 
+                    previewCaptureSession = cameraCaptureSession;
+
                     try {
+
+                        captureRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
+                                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+
                         //Once the Session is setup/configured set a repeating Capture request, and pass in the
                         //RequestBuilds, these repeating requests are handled by background Thread Handler...
                         //CaptureCallback allows you to process dataFrames after capture!
@@ -381,10 +465,30 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    private void lockFocus(){
+        captureState = STATE_WAIT_LOCK;
+
+        captureRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
+
+//        captureRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,CaptureRequest.CONTROL_AF_MODE_AUTO);
+
+        try {
+            previewCaptureSession.capture(captureRequestBuilder.build(),previewCaptureCallback,bgThreadHandler);
+
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+
+//        captureRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,CaptureRequest.CONTROL_AF_TRIGGER_IDLE);
+
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        imageView = (ImageView)findViewById(R.id.imageView);
 
         //Bind textureView variable with layout textureView
         textureView = (TextureView)findViewById(R.id.textureView);
@@ -448,6 +552,11 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+
+    public void onCapture(View view) {
+        Log.d("EventListener","Capture Button Clicked!!");
+        lockFocus();
+    }
 
 
 }
