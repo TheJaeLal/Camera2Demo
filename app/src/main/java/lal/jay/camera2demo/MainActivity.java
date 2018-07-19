@@ -45,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-    public void onLaunch(View view) {
+    public void onCapture(View view) {
 
     }
 
@@ -323,20 +323,20 @@ public class MainActivity extends AppCompatActivity {
     private void startPreview()
     {
         //Get the surface Texture
-        //SurfaceTexture surfaceTexture = textureView.getSurfaceTexture();
+        SurfaceTexture surfaceTexture = textureView.getSurfaceTexture();
 
         //Set its buffer size based on width and height...
-        //surfaceTexture.setDefaultBufferSize(previewSize.getWidth(),previewSize.getHeight());
+        surfaceTexture.setDefaultBufferSize(previewSize.getWidth(),previewSize.getHeight());
 
         //Create a new Surface from the SurfaceTexture
-        //Surface previewSurface = new Surface(surfaceTexture);
+        Surface previewSurface = new Surface(surfaceTexture);
 
         //Create a list of outputSurfaces (where the Image goes...)
 
         List<Surface> outputSurfaces = new ArrayList<Surface>(0);
 
         //The Camera (In App) Preview is one of the Output Surfaces
-        //outputSurfaces.add(previewSurface);
+        outputSurfaces.add(previewSurface);
 
         //The frame captured is to be processed so imageReader's surface object..
         outputSurfaces.add(imageReader.getSurface());
@@ -347,10 +347,11 @@ public class MainActivity extends AppCompatActivity {
             captureRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
 
             //For reading and processing each frame ..
-            captureRequestBuilder.addTarget(imageReader.getSurface());
+//Not Required..
+//            captureRequestBuilder.addTarget(imageReader.getSurface());
 
             //Sets the target for the captured Output, should be an instance of Surface..
-            //captureRequestBuilder.addTarget(previewSurface);
+            captureRequestBuilder.addTarget(previewSurface);
 
             //Start the Capture Session
             cameraDevice.createCaptureSession(outputSurfaces, new CameraCaptureSession.StateCallback() {

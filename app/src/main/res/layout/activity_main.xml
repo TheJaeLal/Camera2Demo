@@ -10,15 +10,18 @@
     <TextureView
         android:id="@+id/textureView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="wrap_content"
+        android:adjustViewBounds="true"
+        android:scaleType="fitCenter"
+        />
 
     <Button
-        android:id="@+id/btn_launch"
-        android:onClick="onLaunch"
+        android:id="@+id/btn_capture"
+        android:onClick="onCapture"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
-        android:text="@string/launch" />
+        android:text="Capture" />
 
 </RelativeLayout>
