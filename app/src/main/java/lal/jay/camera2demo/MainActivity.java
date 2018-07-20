@@ -1,6 +1,7 @@
 package lal.jay.camera2demo;
 
 import android.Manifest;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -61,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
 
     private ImageView imageView;
     private TextureView textureView;
+    private ProgressDialog progress;
 
     private TextureView.SurfaceTextureListener textureViewListener = new TextureView.SurfaceTextureListener() {
         @Override
@@ -135,6 +137,21 @@ public class MainActivity extends AppCompatActivity {
 //            uploadImage()
 //            final byte[] decodeImage = imageToByte(image);
 
+            runOnUiThread(new Runnable() {
+
+                @Override
+                public void run() {
+
+                    progress = new ProgressDialog(MainActivity.this);
+                    progress.setMessage("Please Wait..");
+                    progress.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+                    progress.setIndeterminate(true);
+                    progress.show();
+//                    imageView.setVisibility(ImageView.VISIBLE);
+//                    textureView.setVisibility(TextureView.INVISIBLE);
+                }
+            });
+
 
             //Convert Image to string
             String encodedImage = imageToString(image);
@@ -159,6 +176,8 @@ public class MainActivity extends AppCompatActivity {
 
                     imageView.setVisibility(ImageView.VISIBLE);
                     textureView.setVisibility(TextureView.INVISIBLE);
+
+                    progress.hide();
                 }
             });
 
