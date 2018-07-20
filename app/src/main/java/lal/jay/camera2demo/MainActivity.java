@@ -26,6 +26,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Base64;
 import android.util.Log;
 import android.util.Size;
 import android.util.SparseIntArray;
@@ -35,16 +36,25 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.android.volley.AuthFailureError;
+import com.android.volley.Request;
+import com.android.volley.toolbox.RequestFuture;
+import com.android.volley.toolbox.StringRequest;
 import com.bumptech.glide.Glide;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -122,8 +132,17 @@ public class MainActivity extends AppCompatActivity {
             Log.d("ImageAvailable","Image Captured!!");
 
 
-            final byte[] decodeImage = imageToByte(image);
+//            uploadImage()
+//            final byte[] decodeImage = imageToByte(image);
 
+
+            //Convert Image to string
+            String encodedImage = imageToString(image);
+
+            //Send the String image to server and receive a String image in response
+            String response = uploadImage(encodedImage);
+
+            final byte[] decodedResponse = Base64.decode(response, Base64.DEFAULT);
 
             runOnUiThread(new Runnable() {
 
@@ -133,7 +152,7 @@ public class MainActivity extends AppCompatActivity {
                     // Stuff that updates the UI
 //                    imageView.setVisibility(ImageView.VISIBLE);
                     Glide.with(MainActivity.this)
-                            .load(decodeImage)
+                            .load(decodedResponse)
                             .into(imageView);
 
 //                    imageView.setImageBitmap(bitmap);
@@ -493,6 +512,12 @@ public class MainActivity extends AppCompatActivity {
     private void lockFocus(){
         captureState = STATE_WAIT_LOCK;
 
+        //Enable AutoExposure
+        //captureRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
+
+        //Auto White Balance
+        //captureRequestBuilder.set(CaptureRequest.CONTROL_AWB_MODE,CaptureRequest.CONTROL_AWB_MODE_AUTO);
+
         captureRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
 
 //        captureRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,CaptureRequest.CONTROL_AF_MODE_AUTO);
@@ -577,7 +602,7 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private byte[] imageToByte(Image image) {
+    private Bitmap imageToBitmap(Image image) {
         Image.Plane[] planes = image.getPlanes();
 
         ByteBuffer buffer = planes[0].getBuffer();
@@ -588,8 +613,10 @@ public class MainActivity extends AppCompatActivity {
 
         buffer.get(data);
 
-//        Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
-        return data;
+
+        Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
+
+        return bitmap;
     }
 
         public void onCapture(View view) {
@@ -597,5 +624,73 @@ public class MainActivity extends AppCompatActivity {
         lockFocus();
     }
 
+    private String serverUrl = "http://192.168.43.147:5000/";
+
+    public String uploadImage(final String image)
+    {
+        RequestFuture<String> future = RequestFuture.newFuture();
+
+        StringRequest stringRequest = new StringRequest(Request.Method.POST, serverUrl,future,future)
+        {
+            @Override
+            protected Map<String, String> getParams() throws AuthFailureError {
+                Map<String,String> params = new HashMap<>();
+//                params.put("name","default_name.jpg");
+                params.put("image",image);
+//                uploaded = true;
+                //return super.getParams();
+                return params;
+            }
+
+            @Override
+            public Priority getPriority() {
+                return Priority.IMMEDIATE;
+            }
+        };
+//        stringRequest.setRetryPolicy(new DefaultRetryPolicy(
+//                20000,
+//                DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
+//                DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
+
+        MySingleton.getInstance(MainActivity.this).addToRequestQueue(stringRequest);
+
+        String response = null;
+        try {
+            response = future.get(2, TimeUnit.MINUTES);
+
+            //            Log.d("Server_Response",response);
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        } catch (TimeoutException e) {
+            e.printStackTrace();
+        }
+
+
+        return response;
+
+    }
+
+    private String imageToString(Image image)
+    {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        Log.d("INFO****",width+" x "+height);
+
+//        width = 1280;
+//        height = 720;
+
+//        Bitmap bitmap = YUV_420_888_toRGB(image,width,height);
+
+        Bitmap bitmap = imageToBitmap(image);
+
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG,40,byteArrayOutputStream);
+
+        byte[] imgBytes = byteArrayOutputStream.toByteArray();
+        return Base64.encodeToString(imgBytes,Base64.DEFAULT);
+    }
 
 }
